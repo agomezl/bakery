@@ -16,9 +16,9 @@ val project_def = Define `
     if proc = p1 /\ proc = p2 then
       Let v2 HD [v1] (project proc c) (*TODO: does it make sense to compile self-communication to let? *)
     else if proc = p1 then
-      Send p1 v1 (project proc c)
+      Send p2 v1 (project proc c)
     else if proc = p2 then
-      Receive p2 v2 (project proc c)
+      Receive p1 v2 (project proc c)
     else
       project proc c)
 /\ (project proc (Let v p1 f vs c) =
@@ -54,14 +54,12 @@ val projectS_def = Define`
 
 (*Crates a network of projections from a choreography *)
 val compile_network_def = Define`
-  compile_network s c =
+  compile_network s c []      = NNil
+∧ compile_network s c (p::lp) =
        let mkState = (λp. <| bindings := (projectS p s); queue := [] |>);
-           mkEP = (λp. project p c);
-           mkProcs = SET_TO_LIST (procsOf c);
-           listNetwork = MAP (λp. NEndpoint p (mkState p) (mkEP p)) mkProcs
-       in FOLDL (λx nt. if x = NNil then nt else NPar nt x) NNil listNetwork
-`;
-
-
+           mkEP    = (λp. project p c);
+           mkNEP   = (λp. NEndpoint p (mkState p) (mkEP p))
+       in NPar (mkNEP p) (compile_network s c lp)`
+;
 
 val _ = export_theory ()
