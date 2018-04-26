@@ -82,6 +82,12 @@ val lookup_projectS = Q.store_thm("lookup_projectS",
   rw [FLOOKUP_DEF,fapply_projectS,fdom_projectS]
 );
 
+(* Alternative version of lookup_projectS *)
+val lookup_projectS' = Q.store_thm("lookup_projectS'",
+  `∀p v s d. FLOOKUP s (v,p) = FLOOKUP (projectS p s) v`,
+  rw [FLOOKUP_DEF,fapply_projectS,fdom_projectS]
+);
+
 (* If a state is updated with bindings for a process (`p2`) this does not
    affect the projection of any other process (`p1`)
 *)
@@ -90,15 +96,35 @@ val fupdate_projectS = Q.store_thm("fupdate_projectS",
   rw [projectS_def]
 );
 
+(*  Updating a projected state is equivalent to updating
+    a global state with the corresponding process
+
+*)
+val projectS_fupdate = Q.store_thm("projectS_fupdate",
+  `∀p v d s. projectS p (s |+ ((v,p),d)) = projectS p s |+ (v,d)`,
+  rw [projectS_def]
+  \\ sg `INJ FST ((v,p) INSERT FDOM (DRESTRICT s (λx. SND x = p))) 𝕌(:β)`
+  >- REPEAT (rw [DRESTRICT_DEF,INJ_DEF,PAIR_FST_SND_EQ])
+  \\ IMP_RES_TAC (MAP_KEYS_FUPDATE)
+  \\ first_x_assum (ASSUME_TAC o Q.SPEC `d`)
+  \\ rfs [DRESTRICT_DEF,ETA_THM]
+);
+
+val projectQ_def = Define`
+  projectQ p q = case FLOOKUP q p of
+                    | SOME x => x
+                   | NONE   => []
+`;
 
 (*Crates a network of projections from a choreography *)
 val compile_network_def = Define`
-  compile_network s c []      = NNil
-∧ compile_network s c (p::lp) =
-       let mkState = (λp. <| bindings := (projectS p s); queue := [] |>);
+  compile_network s c []      q = NNil
+∧ compile_network s c (p::lp) q =
+       let mkState = (λp. <| bindings := projectS p s;
+                             queue    := projectQ p q |>);
            mkEP    = (λp. project p c);
            mkNEP   = (λp. NEndpoint p (mkState p) (mkEP p))
-       in NPar (mkNEP p) (compile_network s c lp)`
+       in NPar (mkNEP p) (compile_network s c lp q)`
 ;
 
 val _ = export_theory ()

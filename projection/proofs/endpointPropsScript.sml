@@ -364,7 +364,7 @@ val junkcong_trans_eq = Q.store_thm("junkcong_trans_eq",
                  >> pop_assum(fn thm => FULL_SIMP_TAC bool_ss [Once thm])
                  >> imp_res_tac trans_dequeue
                  >> first_x_assum(qspec_then `v'` assume_tac)
-                 >> rveq                     
+                 >> rveq
                  >> fs[Once FUPDATE_COMMUTES])
              >- (IF_CASES_TAC
                  >- metis_tac[junkcong_rules]
@@ -432,7 +432,7 @@ val junkcong_trans_eq = Q.store_thm("junkcong_trans_eq",
                  >> simp[])
              >- (Cases_on `v = a3` >> fs[Once FUPDATE_COMMUTES]
                  >> fs[free_var_names_endpoint_def,MEM_FILTER]
-                 >> metis_tac[junkcong_rules,junkcong_add_junk']))      
+                 >> metis_tac[junkcong_rules,junkcong_add_junk']))
       >> TRY(qmatch_goalsub_abbrev_tac `junkcong fvs
                                                 (NEndpoint a1
                                                            <|bindings := a2 |+ (v,d);
@@ -546,7 +546,7 @@ val junkcong_trans_pres = Q.store_thm("junkcong_trans_pres",
      junkcong fv p1 q1 ∧ trans p1 alpha p2
      ⇒ ∃q2. trans q1 alpha q2 ∧ junkcong fv p2 q2`,
   metis_tac[junkcong_trans_eq])
-                                     
+
 val list_trans_def = Define `
     (list_trans p [] q = (p = q))
  /\ (list_trans p (alpha::l) q = ?p'. trans p alpha p' /\ list_trans p' l q)`
@@ -697,7 +697,7 @@ val closed_network_junkcong = Q.store_thm("closed_network_junkcong",
   >> simp[closed_network_def] >> imp_res_tac junkcong_endpoints
   >> rw[]);
 
-enval closed_under_receiver_mem = Q.store_thm("closed_under_receiver_mem",
+val closed_under_receiver_mem = Q.store_thm("closed_under_receiver_mem",
   `!n1 p1 d p2 n2 e.
      trans n1 (LSend p1 d p2) n2 /\ closed_under e n1
       /\ set (MAP FST (endpoints n1)) ⊆ e
