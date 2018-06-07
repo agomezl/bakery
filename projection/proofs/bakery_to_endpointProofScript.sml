@@ -1,6 +1,6 @@
 open preamble endpointLangTheory bakery_to_endpointTheory
               endpointSemanticsTheory endpointPropsTheory
-              semBakeryTheory;
+              endpointCongTheory semBakeryTheory;
 
 val _ = new_theory "bakery_to_endpointProof";
 
@@ -65,13 +65,178 @@ val trans_let_gen = Q.store_thm("trans_let_gen",
   rw [endpointSemanticsTheory.trans_let]
 );
 
+val cut_sel_upto_def = Define`
+  cut_sel_upto p (Sel p1 b p2 c) =
+    (if p = p1 then
+       cut_sel_upto p c
+     else
+       Sel p1 b p2 c)
+∧ cut_sel_upto p c = c
+`;
+
+
+val compile_network_eq_all_project = Q.store_thm("compile_network_eq_all_project",
+  `∀c c' s l. compile_network_ok s c l
+    ∧ (∀p. MEM p l ⇒ project' p c = project' p c')
+    ⇒ compile_network s c l = compile_network s c' l`,
+  Induct_on `l`
+  \\ rw [compile_network_gen_def,project_def]
+);
+
+val compile_network_ok_project_ok = Q.store_thm("compile_network_ok_project_ok",
+  `∀s c l p.
+    compile_network_ok s c l
+    ∧ MEM p l
+    ⇒ project_ok p c`,
+  Induct_on `l`
+  \\ rw [compile_network_gen_def,project_def]
+  \\ metis_tac []
+);
+
+val project_if_l_eq = Q.store_thm("project_if_l_eq",
+  `∀s v p q h c1 c2 l.
+    project_ok q (IfThen v p c1 c2)
+    ∧ p ≠ q
+    ∧ (∀b t c'. c1 ≠ Sel p b t c')
+    ⇒ project' q (IfThen v p c1 c2) = project' q c1`,
+  Cases_on `c1`
+  \\ rw [project_def,cut_sel_upto_def,split_sel_def]
+  \\ fs [project_def,cut_sel_upto_def,split_sel_def]
+  \\ TRY (qpat_x_assum `(_,_) = project _ _` (ASSUME_TAC o GSYM))
+  \\ rfs []
+  \\ fs []
+  \\ TRY (qpat_x_assum `(_,_) = project _ _` (ASSUME_TAC o GSYM))
+  \\ every_case_tac
+  \\ rw []
+);
+
+val project_if_r_eq = Q.store_thm("project_if_r_eq",
+  `∀s v p q h c1 c2 l.
+    project_ok q (IfThen v p c1 c2)
+    ∧ p ≠ q
+    ∧ (∀b t c'. c2 ≠ Sel p b t c')
+    ⇒ project' q (IfThen v p c1 c2) = project' q c2`,
+  Cases_on `c2`
+  \\ rw [project_def,cut_sel_upto_def,split_sel_def]
+  \\ fs [project_def,cut_sel_upto_def,split_sel_def]
+  \\ TRY (qpat_x_assum `(_,_) = project _ _` (ASSUME_TAC o GSYM))
+  \\ rfs []
+  \\ fs []
+  \\ TRY (qpat_x_assum `(_,_) = project _ _` (ASSUME_TAC o GSYM))
+  \\ every_case_tac
+  \\ rw []
+);
+
+
+
+val compile_network_if_l_eq = Q.store_thm("compile_network_if_l_eq",
+  `∀s v p c1 c2 l.
+    compile_network_ok s (IfThen v p c1 c2) l
+    ∧ ¬MEM p l
+    ∧ (∀b q c'. c1 ≠ Sel p b q c')
+    ⇒ compile_network s (IfThen v p c1 c2) l = compile_network s c1 l`,
+  rw []
+  \\ ho_match_mp_tac compile_network_eq_all_project
+  \\ rw []
+  \\ imp_res_tac compile_network_ok_project_ok
+  \\ ho_match_mp_tac project_if_l_eq
+  \\ rw []
+  \\ Cases_on `p = p'`
+  \\ fs []
+);
+
+val compile_network_if_r_eq = Q.store_thm("compile_network_if_r_eq",
+  `∀s v p c1 c2 l.
+    compile_network_ok s (IfThen v p c1 c2) l
+    ∧ ¬MEM p l
+    ∧ (∀b p2 c'. c2 ≠ Sel p b p2 c')
+    ⇒ compile_network s (IfThen v p c1 c2) l = compile_network s c2 l`,
+  rw []
+  \\ ho_match_mp_tac compile_network_eq_all_project
+  \\ rw []
+  \\ imp_res_tac compile_network_ok_project_ok
+  \\ ho_match_mp_tac project_if_r_eq
+  \\ rw []
+  \\ Cases_on `p = p'`
+  \\ fs []
+);
+
+val FST_endpoints_compile_network = Q.store_thm("FST_endpoints_compile_network",
+  `∀s c l. MAP FST (endpoints (compile_network s c l)) = l`,
+  Induct_on `l`
+  \\ rw [endpoints_def,compile_network_gen_def]
+);
+
+(* val partners_endpoint_project = Q.store_thm("partners_endpoint_project", *)
+(*   `∀p c. project_ok p c ⇒ *)
+(*     set (partners_endpoint (project' p c)) ⊆ set (procsOf c)`, *)
+(*   Cases_on `c` *)
+(*   \\  rw [partners_endpoint_def,project_def,procsOf_def,nub'_def] *)
+
+(* ) *)
+
+val closed_network_compile_network = Q.store_thm("closed_network_compile_network",
+  `∀s c. compile_network_ok s c (procsOf c)
+    ⇒ closed_network (compile_network s c (procsOf c))`,
+  Induct_on `c`
+  \\ rw [closed_network_def
+     , compile_network_gen_def
+     , procsOf_def
+     , project_def
+     , nub'_def
+     , endpoints_def
+     , closed_under_def
+     , partners_endpoint_def
+     , partners_network_def
+     , FST_endpoints_compile_network]
+  \\ cheat
+);
+
+val count_sel_upto_def = Define`
+  count_sel_upto p (Sel p1 b p2 c) =
+    (if p1 = p
+     then SUC (count_sel_upto p c)
+     else 0)
+∧ count_sel_upto _ c = 0
+`;
+
+val preSel_def = Define`
+  preSel p (Sel p1 b p2 c) =
+    (if p1 = p
+     then (b,p2)::preSel p c
+     else [])
+∧ preSel _ _ = []
+`;
+
+val projPre_def = Define`
+  projPre p ((b,q)::l) ep = IntChoice b q (projPre p l ep)
+∧ projPre p [] ep = ep
+`
+
+val prefix_project_eq = Q.store_thm("prefix_project_eq",
+  `∀p c. project_ok p c
+    ⇒ project' p c = projPre p (preSel p c) (project' p (cut_sel_upto p c))`,
+  Induct_on `c`
+  \\ rw []
+  \\ TRY (Cases_on `p = l0`)
+  \\ rw [project_def,preSel_def,cut_sel_upto_def,projPre_def]
+  \\ fs [project_def]
+);
+
 val compile_network_preservation = Q.store_thm("compile_network_preservation",
-  `∀s c α τ s' c'. trans (s,c) (α,τ) (s',c')
+  `∀s c α τ s' c'. compile_network_ok s c (procsOf c)
+    ∧ trans (s,c) (α,τ) (s',c')
     ⇒ ∃s'' c''. trans_s (s',c') (s'',c'')
        ∧ reduction^* (compile_network s   c   (procsOf c))
                      (compile_network s'' c'' (procsOf c))`,
-  ho_match_mp_tac trans_pairind
-  \\ rw [  compile_network_gen_def
+  `∀s c α τ s' c'. trans (s,c) (α,τ) (s',c')
+    ⇒ (compile_network_ok s c (procsOf c)
+    ⇒ ∃s'' c''. trans_s (s',c') (s'',c'')
+       ∧ reduction^* (compile_network s   c   (procsOf c))
+                     (compile_network s'' c'' (procsOf c)))`
+  suffices_by metis_tac []
+  \\ ho_match_mp_tac trans_pairind
+  \\ rw [ compile_network_gen_def
         , procsOf_def
         , procsOf_all_distinct
         , nub'_def
@@ -216,10 +381,138 @@ val compile_network_preservation = Q.store_thm("compile_network_preservation",
      \\ ho_match_mp_tac trans_par_l
      \\ ho_match_mp_tac trans_let_gen
      \\ UNABBREV_ALL_TAC
+     \\ pop_assum (K ALL_TAC)
      \\ rw []
      >- (Induct_on `vl` \\ rw [lookup_projectS'])
      >- (rw [projectS_fupdate] >> rpt AP_TERM_TAC
         \\ Induct_on `vl` >> rw [lookup_projectS']))
+
+  (* If true *)
+  >- (MAP_EVERY Q.EXISTS_TAC [`s`,`cut_sel_upto p c'`]
+     \\ rw []
+     >- (pop_assum (K ALL_TAC) >> pop_assum (K ALL_TAC)
+        \\ Induct_on `c'` >> rw [trans_s_def,cut_sel_upto_def]
+        \\ Cases_on `l0 = l` >> fs [project_def]
+        \\ ho_match_mp_tac RTC_TRANS
+        \\  metis_tac [trans_s_def,trans_sel])
+     \\ MAP_EVERY Q.ABBREV_TAC [ `l = FILTER (λy. p ≠ y) (nub' (procsOf c' ⧺ procsOf c2))`
+                               , `sq = <|bindings := projectS p s; queue := []|>`
+                               ]
+     \\ ho_match_mp_tac RTC_TRANS
+     \\ Q.EXISTS_TAC `NPar (NEndpoint p sq (SND (project p c')))
+                           (compile_network s (IfThen v p c' c2) l)`
+     \\ rw [reduction_def]
+     >- (ho_match_mp_tac trans_par_l
+        \\ ho_match_mp_tac endpointSemanticsTheory.trans_if_true
+        \\ rw [Abbr `sq`,lookup_projectS])
+     \\ `¬MEM p l` by rw [Abbr `l`,MEM_FILTER]
+
+     \\ rw [prefix_project_eq ]
+     \\ Induct_on `preSel p c'`
+     \\ MAP_EVERY (fn pat => qpat_x_assum pat mp_tac)
+                  [ `project_ok p c'`
+                  , `compile_network_ok _ _ _`
+                  , `Abbrev (l = _)`
+                  , `Abbrev (n = _)`]
+     \\ Q.SPEC_TAC (`c'`,`c`)
+     \\ Induct_on `preSel p c`
+
+     (* BASE *)
+     \\ qpat_x_assum `[] = preSel _ _` (ASSUME_TAC o GSYM)
+     \\ rw [projPre_def]
+     \\ `∀b q c'. c ≠ Sel p b q c'`
+        by (Cases_on `c` >> fs [preSel_def]
+           \\ Cases_on `l0 = p` >> fs [])
+     \\ imp_res_tac compile_network_if_l_eq
+     \\ rw []
+     \\ Cases_on `c` >> rw [cut_sel_upto_def]
+
+     (* IH *)
+     rw []
+
+     \\ UNABBREV_TAC "l"
+     \\ Induct_on `FILTER (λy. p ≠ y) (nub' (procsOf c' ⧺ procsOf c2))`
+
+
+     \\ Q.ABBREV_TAC `n = count_sel_upto p c'`
+     \\ MAP_EVERY (fn pat => qpat_x_assum pat mp_tac)
+                  [ `project_ok p c'`
+                  , `compile_network_ok _ _ _`
+                  , `Abbrev (l = _)`
+                  , `Abbrev (n = _)`]
+     \\ Q.SPEC_TAC (`c'`,`c`)
+     \\ Induct_on `cut_sel_upto p c`
+     \\ rw []
+     >- (Cases_on `c` \\ rw [cut_sel_upto_def]
+        \\ imp_res_tac compile_network_if_l_eq
+        \\ fs [count_sel_upto_def]
+        \\ UNABBREV_ALL_TAC
+        \\ fs [])
+     \\ Cases_on `c`
+     >- (rw [cut_sel_upto_def]
+        \\ imp_res_tac compile_network_if_l_eq
+        \\ fs [])
+     >- (rw [cut_sel_upto_def]
+        \\ imp_res_tac compile_network_if_l_eq
+        \\ fs [])
+     >- (rw [cut_sel_upto_def]
+        \\ imp_res_tac compile_network_if_l_eq
+        \\ fs [])
+     >- (rw [cut_sel_upto_def]
+        \\ imp_res_tac compile_network_if_l_eq
+        \\ fs [])
+     >- (Cases_on `l0 ≠ p`
+        >- (rw [cut_sel_upto_def]
+           \\ imp_res_tac compile_network_if_l_eq
+           \\ fs [])
+        >- (fs []
+
+           >- (rw [count_sel_upto_def] \\ UNABBREV_ALL_TAC \\ fs [])
+           >- (rw [count_sel_upto_def] \\ fs []
+             )
+          )
+
+       )
+
+
+     >- (Q.ABBREV_TAC `n = count_sel_upto p (Sel)`
+
+)
+
+
+
+
+     (* TODO *)
+        \\ `¬MEM p l` by rw [Abbr `l`,MEM_FILTER]
+        sg `l = [] ⇒ c' = Nil`
+        rw [Abbr `l`]
+        \\ fs [FILTER]
+        \\ Cases_on `c'` \\ fs [procsOf_def,nub'_def]
+
+
+        \\ qpat_x_assum `Abbrev _` (K ALL_TAC)
+
+        \\ Induct_on `l`
+
+\\ rw []
+        \\ rw [compile_network_gen_def]
+
+     \\ cheat) (* TODO *)
+  (* If false *)
+  >- (Q.EXISTS_TAC `FEMPTY`
+     \\ fs [projectQ_def]
+     \\ MAP_EVERY Q.ABBREV_TAC [ `l = FILTER (λy. p ≠ y) (nub' (procsOf c1 ⧺ procsOf c'))`
+                               , `sq = <|bindings := projectS p s; queue := []|>`
+                               ]
+     \\ ho_match_mp_tac RTC_TRANS
+     \\ Q.EXISTS_TAC `NPar (NEndpoint p sq (project p c'))
+                           (compile_network s (IfThen v p c1 c') l FEMPTY)`
+     \\ rw [reduction_def]
+     >- (ho_match_mp_tac trans_par_l
+        \\ ho_match_mp_tac endpointSemanticsTheory.trans_if_false
+        \\ Q.EXISTS_TAC `w`
+        \\ rw [Abbr `sq`,lookup_projectS])
+     \\ cheat) (* TODO *)
   \\ cheat
 );
 
