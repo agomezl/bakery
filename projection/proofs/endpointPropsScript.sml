@@ -793,4 +793,28 @@ val closed_network_reduction = Q.store_thm("closed_network_reduction",
   >> simp[Once CONJ_SYM, reduction_def]
   >> MATCH_ACCEPT_TAC closed_network_trans);
 
+val sender_receiver_distinct_choice = Q.store_thm("sender_receiver_distinct_choice",
+  `!n1 p1 b p2 n2.
+     trans n1 (LIntChoice p1 b p2) n2 ==> p1 ≠ p2`,
+  rpt strip_tac >> pop_assum mp_tac
+  >> qmatch_asmsub_abbrev_tac `trans _ a1 _`
+  >> pop_assum (mp_tac o PURE_ONCE_REWRITE_RULE [markerTheory.Abbrev_def])
+  >> MAP_EVERY (W(curry Q.SPEC_TAC)) [`p1`,`b`,`p2`]
+  >> pop_assum mp_tac
+  >> MAP_EVERY (W(curry Q.SPEC_TAC)) [`n2`,`a1`,`n1`]
+  >> ho_match_mp_tac trans_strongind
+  >> rpt strip_tac >> fs[]);
+
+val sender_receiver_distinct = Q.store_thm("sender_receiver_distinct",
+  `!n1 p1 d p2 n2.
+     trans n1 (LSend p1 d p2) n2 ==> p1 ≠ p2`,
+  rpt strip_tac >> pop_assum mp_tac
+  >> qmatch_asmsub_abbrev_tac `trans _ a1 _`
+  >> pop_assum (mp_tac o PURE_ONCE_REWRITE_RULE [markerTheory.Abbrev_def])
+  >> MAP_EVERY (W(curry Q.SPEC_TAC)) [`p1`,`d`,`p2`]
+  >> pop_assum mp_tac
+  >> MAP_EVERY (W(curry Q.SPEC_TAC)) [`n2`,`a1`,`n1`]
+  >> ho_match_mp_tac trans_strongind
+  >> rpt strip_tac >> fs[]);
+
 val _ = export_theory ()
